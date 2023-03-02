@@ -8,6 +8,7 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Dict, List, Mapping, NamedTuple, Optional, Union
 from urllib.parse import urljoin, urlparse
+import os
 
 # if simplejson is installed, `requests` defaults to using it instead of json
 # this allows the client to gracefully handle either json or simplejson
@@ -106,7 +107,8 @@ class Client:
         self._attached_headers = {}  # type: Dict[str, str]
 
         # Hard-code the auth filepath location
-        self._auth_file = Path(prefect.context.config.home_dir).absolute() / "auth.toml"
+        self._auth_file = Path(
+            prefect.context.config.home_dir).absolute() / "auth.toml"
 
         # Note the default is `cloud.api` which is `cloud.endpoint` or `server.endpoint`
         # depending on the value of the `backend` key
@@ -154,7 +156,8 @@ class Client:
             raise ValueError("You have not set an API key for authentication.")
 
         response = self.graphql({"query": {"auth_info": "tenant_id"}})
-        tenant_id = response.get("data", {}).get("auth_info", {}).get("tenant_id", "")
+        tenant_id = response.get("data", {}).get(
+            "auth_info", {}).get("tenant_id", "")
 
         if tenant_id == "":
             raise ClientError(
@@ -217,7 +220,8 @@ class Client:
         """
         # Load the current contents of the entire file
         contents = (
-            toml.loads(self._auth_file.read_text()) if self._auth_file.exists() else {}
+            toml.loads(self._auth_file.read_text()
+                       ) if self._auth_file.exists() else {}
         )
 
         # Update the data for this API server
@@ -264,7 +268,8 @@ class Client:
             elif prefect.config.backend == "server":
                 self._tenant_id = self._get_default_server_tenant()
             else:
-                raise ValueError(f"Unknown backend setting {prefect.config.backend!r}")
+                raise ValueError(
+                    f"Unknown backend setting {prefect.config.backend!r}")
 
         if not self._tenant_id:
             raise ClientError(
@@ -445,7 +450,8 @@ class Client:
             path="",
             server=self.api_server,
             headers=headers,
-            params=dict(query=parse_graphql(query), variables=json.dumps(variables)),
+            params=dict(query=parse_graphql(query),
+                        variables=json.dumps(variables)),
             api_key=api_key,
             retry_on_api_error=retry_on_api_error,
         )
@@ -635,6 +641,13 @@ class Client:
             headers.update(self._attached_headers)
 
         session = requests.Session()
+        if "PREFECT_MTLS_CRT" in os.environ and "PREFECT_MTLS_KEY" in os.environ and "PREFECT_MTLS_CA" in os.environ:
+            session.cert = (
+                os.environ["PREFECT_MTLS_CRT"],
+                os.environ["PREFECT_MTLS_KEY"]
+            )
+            session.verify = os.environ["PREFECT_MTLS_CA"]
+
         retry_total = 6
         retries = requests.packages.urllib3.util.retry.Retry(
             total=retry_total,
@@ -643,8 +656,10 @@ class Client:
             # typeshed is out of date with urllib3 and missing `allowed_methods`
             allowed_methods=["DELETE", "GET", "POST"],  # type: ignore
         )
-        session.mount("https://", requests.adapters.HTTPAdapter(max_retries=retries))
-        session.mount("http://", requests.adapters.HTTPAdapter(max_retries=retries))
+        session.mount(
+            "https://", requests.adapters.HTTPAdapter(max_retries=retries))
+        session.mount(
+            "http://", requests.adapters.HTTPAdapter(max_retries=retries))
         response = self._send_request(
             session=session, method=method, url=url, params=params, headers=headers
         )
@@ -658,7 +673,8 @@ class Client:
                     "are authenticated. See `prefect auth login --help`."
                 ) from exc
             else:
-                raise ClientError("Malformed response received from API.") from exc
+                raise ClientError(
+                    "Malformed response received from API.") from exc
 
         # check if there was an API_ERROR code in the response
         if "API_ERROR" in str(json_resp.get("errors")) and retry_on_api_error:
@@ -728,12 +744,14 @@ class Client:
                 variables=dict(slug=tenant_slug),
             )
             if not tenant.data.tenant:
-                raise ValueError(f"No matching tenant found for slug {tenant_slug!r}.")
+                raise ValueError(
+                    f"No matching tenant found for slug {tenant_slug!r}.")
 
             tenant_id = tenant.data.tenant[0].id
 
         if not tenant_id:
-            raise ValueError("A `tenant_id` or `tenant_slug` must be provided.")
+            raise ValueError(
+                "A `tenant_id` or `tenant_slug` must be provided.")
 
         self.tenant_id = tenant_id
         self._get_auth_tenant()
@@ -749,7 +767,8 @@ class Client:
                 available tenants
         """
         result = self.graphql(
-            {"query": {"tenant(order_by: {slug: asc})": {"id", "slug", "name"}}},
+            {"query": {"tenant(order_by: {slug: asc})": {
+                "id", "slug", "name"}}},
             api_key=self.api_key,
         )
         return result.data.tenant  # type: ignore
@@ -1082,7 +1101,8 @@ class Client:
                 project_query = {
                     "query": {
                         with_args(
-                            "project", {"where": {"name": {"_eq": project_name}}}
+                            "project", {
+                                "where": {"name": {"_eq": project_name}}}
                         ): {"id": True}
                     }
                 }
@@ -1106,7 +1126,8 @@ class Client:
         """
 
         if project_name is None:
-            raise TypeError("'project_name' is a required field for deleting a project")
+            raise TypeError(
+                "'project_name' is a required field for deleting a project")
 
         query_project = {
             "query": {
@@ -1128,7 +1149,8 @@ class Client:
         }
 
         delete_project = self.graphql(
-            project_mutation, variables=dict(input=dict(project_id=project[0].id))
+            project_mutation, variables=dict(
+                input=dict(project_id=project[0].id))
         )
 
         return delete_project.data.delete_project.success
@@ -1182,7 +1204,8 @@ class Client:
             }
         }
         if not flow_id and not version_group_id:
-            raise ValueError("One of flow_id or version_group_id must be provided")
+            raise ValueError(
+                "One of flow_id or version_group_id must be provided")
 
         inputs = {}  # type: Dict[str, Any]
         if flow_id:
@@ -1249,7 +1272,8 @@ class Client:
         }
         result = self.graphql(query).data.flow_run_by_pk  # type: ignore
         if result is None:
-            raise ClientError('Flow run ID not found: "{}"'.format(flow_run_id))
+            raise ClientError(
+                'Flow run ID not found: "{}"'.format(flow_run_id))
 
         task_runs = [
             TaskRunInfoResult(
@@ -1277,7 +1301,8 @@ class Client:
             version=result.version,
             task_runs=task_runs,
             state=state,
-            scheduled_start_time=pendulum.parse(result.scheduled_start_time),  # type: ignore
+            scheduled_start_time=pendulum.parse(
+                result.scheduled_start_time),  # type: ignore
             project=ProjectInfo(
                 id=result.flow.project.id, name=result.flow.project.name
             ),
@@ -1300,7 +1325,8 @@ class Client:
         mutation = {
             "mutation": {
                 with_args(
-                    "update_flow_run_heartbeat", {"input": {"flow_run_id": flow_run_id}}
+                    "update_flow_run_heartbeat", {
+                        "input": {"flow_run_id": flow_run_id}}
                 ): {"success"}
             }
         }
@@ -1330,7 +1356,8 @@ class Client:
         }
 
         result = self.graphql(
-            mutation, variables=dict(input=dict(flow_run_id=flow_run_id, name=name))
+            mutation, variables=dict(input=dict(
+                flow_run_id=flow_run_id, name=name))
         )
 
         return result.data.set_flow_run_name.success
@@ -1503,7 +1530,8 @@ class Client:
         task_run_info = result.data.get_or_create_task_run_info
 
         state = (
-            prefect.engine.state.State.deserialize(task_run_info.serialized_state)
+            prefect.engine.state.State.deserialize(
+                task_run_info.serialized_state)
             if task_run_info.serialized_state
             else prefect.engine.state.Pending()
         )
@@ -1536,7 +1564,8 @@ class Client:
         }
 
         result = self.graphql(
-            mutation, variables=dict(input=dict(task_run_id=task_run_id, name=name))
+            mutation, variables=dict(input=dict(
+                task_run_id=task_run_id, name=name))
         )
 
         return result.data.set_task_run_name.success
@@ -1894,7 +1923,8 @@ class Client:
         self.graphql(
             mutation,
             variables=dict(
-                input=dict(task_run_artifact_id=task_run_artifact_id, data=data)
+                input=dict(
+                    task_run_artifact_id=task_run_artifact_id, data=data)
             ),
         )
 
@@ -1918,5 +1948,6 @@ class Client:
 
         self.graphql(
             mutation,
-            variables=dict(input=dict(task_run_artifact_id=task_run_artifact_id)),
+            variables=dict(input=dict(
+                task_run_artifact_id=task_run_artifact_id)),
         )
