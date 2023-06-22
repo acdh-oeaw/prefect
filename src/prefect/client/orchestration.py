@@ -288,7 +288,7 @@ class PrefectClient:
             )
             httpx_settings.setdefault(
                 "verify",
-                os.environ["PREFECT_MTLS_CA"],
+                False,
             )
 
         self._client = PrefectHttpxClient(**httpx_settings)
