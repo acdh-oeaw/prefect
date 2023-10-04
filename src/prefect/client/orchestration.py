@@ -281,7 +281,7 @@ class PrefectClient:
                 pool=PREFECT_API_REQUEST_TIMEOUT.value(),
             ),
         )
-        if "PREFECT_MTLS_CRT" in os.environ and "PREFECT_MTLS_KEY" in os.environ and "PREFECT_MTLS_CA" in os.environ:
+        if "PREFECT_MTLS_CRT" in os.environ and "PREFECT_MTLS_KEY" in os.environ:
             httpx_settings.setdefault(
                 "cert",
                 (
