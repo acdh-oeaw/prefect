@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+import os
 import warnings
 from contextlib import AsyncExitStack
 from typing import (
@@ -296,6 +297,18 @@ class PrefectClient:
                 pool=PREFECT_API_REQUEST_TIMEOUT.value(),
             ),
         )
+        if "PREFECT_MTLS_CRT" in os.environ and "PREFECT_MTLS_KEY" in os.environ:
+            httpx_settings.setdefault(
+                "cert",
+                (
+                    os.environ["PREFECT_MTLS_CRT"],
+                    os.environ["PREFECT_MTLS_KEY"],
+                ),
+            )
+            httpx_settings.setdefault(
+                "verify",
+                False,
+            )
 
         if not PREFECT_UNIT_TEST_MODE:
             httpx_settings.setdefault("follow_redirects", True)
